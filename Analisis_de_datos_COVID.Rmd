@@ -1,0 +1,622 @@
+---
+title: Analisis de datos sobre el COVID"
+author: "José Manuel Armendariz Mena"
+date: "2022-10-10"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 3. Análisis univariado de las variables asociadas.
+
+**José Manuel Armendariz Mena -- A01197583**
+
+Primero comenzaremos por identificar y separar las *variables* de estudio propuestas:
+
+$\bullet$ **Sexo:** Es del tipo categórica, nos sirvió como característica de distinción poblacional, para conocer la cantidad de hombres o mujeres con respecto a otras variables.
+
+$\bullet$ **Edad:** Esta variable númerica nos sirvió para obtener datos analíticos en favor a la edad, como promedios, y también nos sirvió como referencia para otras variables.
+
+$\bullet$ **Días de hospitalización:** La obtuvimos a partir de la conversión de una sustracción de fechas convertida en una variable numérica. Fue de utilidad a la hora de conocer días de hospitalización por estados.
+
+$\bullet$ **Fechas de entrada y salida del hospital:** Estas variables categóricas nos permitieron saber la cantidad de días de hospitalización.
+
+$\bullet$ **Fecha de síntomas:** Sirvió para conocer el promedio de días con síntomas, tanto en las personas que fallecieron, como en las que no.
+
+$\bullet$ **Mortalidad:** Esta se obtuvo conociendo la cantidad de personas que fallecieron a causa de covid, y nos pudo proporcionar un promedio de mortalidad en cada entidad.
+
+$\bullet$ **Tabaquismo y Obesidad:** Como variables categóricas fueron de utilidad para conocer como afectaban estas enfermedades en promedio a la gravedad de los síntomas.
+
+*Pregunta de Investigación:* De los pacientes hospitalizados, ¿quiénes permanecen más en los hospitales, los hombres o las mujeres? ¿Este resultado se ha mantenido similar al de hace un año? ¿La edad es un factor para el número de días que el paciente está en el hospital?
+
+```{r}
+M=read.csv("muestra120k.csv", encoding = "UTF-8")
+
+library(nortest)
+
+
+
+# Se genera una base de datos que contengan a las personas que han fallecido.
+Mfiltradafechaf = subset(M, M$FECHA_DEF != "9999-99-99")
+Mhombresf = subset(Mfiltradafechaf, Mfiltradafechaf$SEXO != "1")
+Mmujeresf = subset(Mfiltradafechaf, Mfiltradafechaf$SEXO != "2")
+
+# Base de datos con las mujeres y hombres que no fallecieron
+Mfiltradafechav = subset(M, M$FECHA_DEF == "9999-99-99")
+Mhombresv = subset(Mfiltradafechav, Mfiltradafechaf$SEXO != "1")
+Mmujeresv = subset(Mfiltradafechav, Mfiltradafechaf$SEXO != "2")
+
+# Se calculan los días de hospitalización anterior al fallecimiento de los pacientes de nuestra muestra.
+dias = as.numeric(as.Date(Mfiltradafechaf$FECHA_DEF)-as.Date(Mfiltradafechaf$FECHA_INGRESO))
+
+# Se calculan los días desde que se presentaron sintomas antes de ir al hospital
+
+diassf = as.numeric(as.Date(Mfiltradafechaf$FECHA_INGRESO)-as.Date(Mfiltradafechaf$FECHA_SINTOMAS))
+diasshf = as.numeric(as.Date(Mhombresf$FECHA_INGRESO)-as.Date(Mhombresf$FECHA_SINTOMAS))
+diassmf = as.numeric(as.Date(Mmujeresf$FECHA_INGRESO)-as.Date(Mmujeresf$FECHA_SINTOMAS))
+
+diassv = as.numeric(as.Date(Mfiltradafechav$FECHA_INGRESO)-as.Date(Mfiltradafechav$FECHA_SINTOMAS))
+diasshv = as.numeric(as.Date(Mhombresv$FECHA_INGRESO)-as.Date(Mhombresv$FECHA_SINTOMAS))
+diassmv = as.numeric(as.Date(Mmujeresv$FECHA_INGRESO)-as.Date(Mmujeresv$FECHA_SINTOMAS))
+
+# Se separan las bases de datos para hombres y mujeres que han fallecido
+
+diasm = as.numeric(as.Date(Mmujeresf$FECHA_DEF)-as.Date(Mmujeresf$FECHA_INGRESO))
+diash = as.numeric(as.Date(Mhombresf$FECHA_DEF)-as.Date(Mhombresf$FECHA_INGRESO))
+
+```
+
+## Generando intervalos de confianza para la media de la variable: "Días de hospitalización"
+
+```{r}
+
+alfa = 0.05
+z = abs(qnorm(alfa/2))
+
+
+udias = mean(as.numeric(dias))
+ndias = length(as.numeric(dias))
+DEdias = sd(dias)
+ESdias = DEdias/sqrt(ndias)
+
+lidias = udias - (z * ESdias)
+lsdias = udias + (z * ESdias)
+cat("Días de hospitalización antes de fallecer: \n\n")
+cat("El intervarlo de la media es: [", lidias, ",", lsdias,"]. Para toda la muestra. \n")
+
+udiasm = mean(as.numeric(diasm))
+ndiasm = length(as.numeric(diasm))
+DEdiasm = sd(diasm)
+ESdiasm = DEdias/sqrt(ndiasm)
+
+lidiasm = udiasm - (z * ESdiasm)
+lsdiasm = udiasm + (z * ESdiasm)
+
+cat("El intervarlo de la media es: [", lidiasm, ",", lsdiasm,"]. Para las mujeres. \n")
+
+udiash = mean(as.numeric(diash))
+ndiash = length(as.numeric(diash))
+DEdiash = sd(diash)
+ESdiash = DEdias/sqrt(ndiash)
+
+lidiash = udiash - (z * ESdiash)
+lsdiash = udiash + (z * ESdiash)
+
+cat("El intervarlo de la media es: [", lidiash, ",", lsdiash,"]. Para los hombres. \n\n\n")
+
+```
+
+## Analizando la proporción de la variable "Sexo" en la muestra
+
+Se puede observar que la proporción de hombres y mujeres que sobreviven es muy similar a la proporción inicial de la muestra, sin embargo, es muy probable que esto se deba a que la muestra es muy grande y no muchas personas fallecen. Cuando se observan las proporciones de hombres y mujeres que fallecen podemos encontrar una clara diferencia pues parece ser que son más los hombres los que fallecen.
+
+Para la prueba de diferencia de proporciones: 
+$H_o$: Hay una diferencia significativa en las proporciones de hombres y mujeres.
+$H_a$: No hay una diferencia significativa en las proporciones de hombres y mujeres.
+```{r}
+T=table(M$SEXO)
+names(T)=c("Mujer","Hombre")
+sh = subset(M, M$SEXO != 1)
+sm = subset(M, M$SEXO != 2)
+ns = length(M$SEXO)
+nsm = length(sm$SEXO)
+nsh = length(sh$SEXO)
+
+cat("\nProporciones de la muestra:\n\n")
+
+prop.table(T)
+Ips = prop.test(c(nsm, nsh), c(ns, ns), conf.level = 0.95, correct = FALSE)
+cat("\nEl intervalo de confianza de la diferencia de proporciones es:", "[", Ips$conf.int[1], ",", Ips$conf.int[2], "] \nValor p = ", Ips$p.value)
+
+cat("\n\n\nProporciones de las personas que no fallecieron en la muestra.\n\n")
+
+T=table(Mfiltradafechav$SEXO)
+names(T)=c("Mujer","Hombre")
+shv = subset(Mfiltradafechav, Mfiltradafechav$SEXO != 1)
+smv = subset(Mfiltradafechav, Mfiltradafechav$SEXO != 2)
+nsv = length(Mfiltradafechav$SEXO)
+nsmv = length(smv$SEXO)
+nshv = length(shv$SEXO)
+
+prop.table(T)
+Ipsv = prop.test(c(nsmv, nshv), c(nsm, nsh), conf.level = 0.95, correct = FALSE)
+cat("\nEl intervalo de confianza de la diferencia de proporciones es:", "[", Ipsv$conf.int[1], ",", Ipsv$conf.int[2], "] \nValor p = ", Ipsv$p.value)
+
+
+cat("\n\n\nProporciones de las personas fallecidas en la muestra.\n\n")
+
+T=table(Mfiltradafechaf$SEXO)
+names(T)=c("Mujer","Hombre")
+shf = subset(Mfiltradafechaf, Mfiltradafechaf$SEXO != 1)
+smf = subset(Mfiltradafechaf, Mfiltradafechaf$SEXO != 2)
+nsf = length(Mfiltradafechaf$SEXO)
+nsmf = length(smf$SEXO)
+nshf = length(shf$SEXO)
+
+prop.table(T)
+Ipsf = prop.test(c(nsmf, nshf), c(nsm, nsh), conf.level = 0.95, correct = FALSE)
+cat("\nEl intervalo de confianza de la diferencia de proporciones es:", "[", Ipsf$conf.int[1], ",", Ipsf$conf.int[2], "] \nValor p = ", Ipsf$p.value, "\n\n\nYa que el valor p < alfa = 0.05 en todos los casos y el 0 no se encuentra dentro de los intervalos de confianza, no hay suficiente información para rechazar Ho, es decir, es posible que exista diferencia significativa en las proporciones de poblaciones.") 
+
+
+```
+
+Hipotesis de población 1
+$H_0$: La cantidad de hombres hospitalizados es mayor a la de mujeres.
+$H_1$: La cantidad de hombres es menor.
+
+```{r}
+poblacionh= M$SEXO==2
+mh=mean(poblacionh)
+poblacionm= M$SEXO==1
+mm=mean(poblacionm)
+t.test(poblacionh,poblacionm,alternative="less",mu=0)
+cat("El porcentaje de hombres en la población es de",mh*100,"%, mientras que el de mujeres es de",mm*100,"%")
+```
+Al obtener el porcentaje de cantidad de hombres en la muestra, se puede observar que es menor al de mujeres; de igual forma, el valor de p es mucho menor a 0.05 por lo cual se puede concluir que los datos muestran que $H_0$ se rechaza.
+
+Hipótesis de población 2
+$H_0$: La cantidad de personas hospitalizadas que no fallecieron es mayor a la cantidad que fallecieron.
+$H_1$: La cantidad de personas que no fallecieron es menor.
+
+```{r}
+nofall=M$FECHA_DEF == "9999-99-99"
+fall=M$FECHA_DEF != "9999-99-99"
+mn=mean(nofall)
+ms=mean(fall)
+t.test(nofall,fall,alternative="less",mu=0)
+cat("El porcentaje de no fallecidos es de",mn*100,"%, y el porcentaje de fallecidos es de",ms*100,"%")
+```
+Los datos muestran que es probable que haya mayor cantidad de no fallecidos, que de gente que si falleció. El valor de p también es mayor a 0.05, por lo cuál es otro factor suponer esto.
+
+## Generando intervalos de confianza para la media de la variable: "Edad" (Nivel nacional)
+
+```{r}
+alfa = 0.05
+z = abs(qnorm(alfa/2))
+
+cat("Para la parte de la muestra que no falleció: \n\n")
+
+uev = mean(Mfiltradafechav$EDAD)
+nev = length(Mfiltradafechav$EDAD)
+DEev = sd(Mfiltradafechav$EDAD)
+ESev = DEev / sqrt(nev)
+
+liev = uev - (z * ESev)
+lsev = uev + (z * ESev)
+
+cat("El intervarlo de la media es: [", liev, ",", lsev,"]. Para toda la muestra. \n")
+
+uehv = mean(Mhombresv$EDAD)
+nehv = length(Mhombresv$EDAD)
+DEehv = sd(Mhombresv$EDAD)
+ESehv = DEehv / sqrt(nehv)
+
+liehv = uehv - (z * ESehv)
+lsehv = uehv + (z * ESehv)
+
+cat("El intervarlo de la media es: [", liehv, ",", lsehv,"]. Para las mujeres. \n")
+
+uemv = mean(Mmujeresv$EDAD)
+nemv = length(Mmujeresv$EDAD)
+DEemv = sd(Mmujeresv$EDAD)
+ESemv = DEev / sqrt(nemv)
+
+liemv = uemv - (z * ESemv)
+lsemv = uemv + (z * ESemv)
+
+cat("El intervarlo de la media es: [", liemv, ",", lsemv,"]. Para los hombres. \n\n\n")
+
+cat("Para la parte de la muestra que falleció: \n\n")
+
+uef = mean(Mfiltradafechaf$EDAD)
+nef = length(Mfiltradafechaf$EDAD)
+DEef = sd(Mfiltradafechaf$EDAD)
+ESef = DEef / sqrt(nef)
+
+lief = uef - (z * ESef)
+lsef = uef + (z * ESef)
+
+cat("El intervarlo de la media es: [", lief, ",", lsef,"]. Para toda la muestra. \n")
+
+uehf = mean(Mhombresf$EDAD)
+nehf = length(Mhombresf$EDAD)
+DEehf = sd(Mhombresf$EDAD)
+ESehf = DEehf / sqrt(nehf)
+
+liehf = uehf - (z * ESehf)
+lsehf = uehf + (z * ESehf)
+
+cat("El intervarlo de la media es: [", liehf, ",", lsehf,"]. Para las mujeres. \n")
+
+uemf = mean(Mmujeresf$EDAD)
+nemf = length(Mmujeresf$EDAD)
+DEemf = sd(Mmujeresf$EDAD)
+ESemf = DEemf / sqrt(nemf)
+
+liemf = uemf - (z * ESemf)
+lsemf = uemf + (z * ESemf)
+
+cat("El intervarlo de la media es: [", liemf, ",", lsemf,"]. Para los hombres. \n")
+
+plot(NA, xlim = c(38.5, 39), ylim = c(-1,10), ylab = "", xlab = "Intervalos de confianza para la edad de las personas que no fallecieron.")
+
+arrows(liev , 1, lsev , 1, code = 3, angle = 90, lwd = 2, col = "blue") #arrows(x1, y1, x2, y2, )
+arrows(liehv , 5, lsehv , 5, code = 3, angle = 90, lwd = 2, col = "blue")
+arrows(liemv , 9, lsemv , 9, code = 3, angle = 90, lwd = 2, col = "blue")
+
+points(uev, 1, pch = 19, col = "red", cex = 1.5)
+points(uehv, 5, pch = 19, col = "red", cex = 1.5)
+points(uemv, 9, pch = 19, col = "red", cex = 1.5)
+
+text(38.55, 1, "Muestra")
+text(liev, -0.5, round(liev, 2))
+text(lsev, -0.5, round(lsev, 2))
+text(uev, -0.5, round(uev, 2))
+
+text(38.55, 5, "Hombres")
+text(liehv, 3.5, round(liehv, 2))
+text(lsehv, 3.5, round(lsehv, 2))
+text(uehv, 3.5, round(uehv, 2))
+
+text(38.55, 9, "Mujeres")
+text(liemv, 7.5, round(liemv, 2))
+text(lsemv, 7.5, round(lsemv, 2))
+text(uemv, 7.5, round(uemv, 2))
+
+plot(NA, xlim = c(62, 65), ylim = c(-1,10), ylab = "", xlab = "Intervalos de confianza para la edad de las personas que fallecieron.")
+
+arrows(lief , 1, lsef , 1, code = 3, angle = 90, lwd = 2, col = "blue") #arrows(x1, y1, x2, y2, )
+arrows(liehf , 5, lsehf , 5, code = 3, angle = 90, lwd = 2, col = "blue")
+arrows(liemf , 9, lsemf , 9, code = 3, angle = 90, lwd = 2, col = "blue")
+
+points(uef, 1, pch = 19, col = "red", cex = 1.5)
+points(uehf, 5, pch = 19, col = "red", cex = 1.5)
+points(uemf, 9, pch = 19, col = "red", cex = 1.5)
+
+text(62.15, 1, "Muestra")
+text(lief, -0.5, round(lief, 2))
+text(lsef, -0.5, round(lsef, 2))
+text(uef, -0.5, round(uef, 2))
+
+text(62.15, 5, "Hombres")
+text(liehf, 3.5, round(liehf, 2))
+text(lsehf, 3.5, round(lsehf, 2))
+text(uehf, 3.5, round(uehf, 2))
+
+text(62.15, 9, "Mujeres")
+text(liemf, 7.5, round(liemf, 2))
+text(lsemf, 7.5, round(lsemf, 2))
+text(uemf, 7.5, round(uemf, 2))
+
+```
+
+$H_0$: No hay diferencia significativa entre la media de edad de las personas fallecidas y no fallecidas.
+$H_1$:Hay diferencia significativa entre la media de edad de las personas fallecidas y no fallecidas.
+```{r}
+t.test(Mfiltradafechav$EDAD,Mfiltradafechaf$EDAD,alternative="two.sided",mu=0)
+```
+Tomando en cuenta el valor de p que es menor a 0.05, se puede concluir que la diferencia si debe ser significativa en cuanto edad
+para las personas fallecidas.
+
+
+## Generando intervalos de confianza para la media de la variable: "Días de síntomas antes de la hospitalización"
+
+```{r}
+alfa = 0.05
+z = abs(qnorm(alfa/2))
+
+cat("Para la parte de la muestra que no falleció: \n\n")
+
+udiassv = mean(as.numeric(diassv))
+ndiassv = length(as.numeric(diassv))
+DEdiassv = sd(diassv)
+ESdiassv = DEdiassv/sqrt(ndiassv)
+lidiassv = udiassv - (z * ESdiassv)
+lsdiassv = udiassv + (z * ESdiassv)
+
+cat("El intervarlo de la media es: [", lidiassv, ",", lsdiassv,"]. Para toda la muestra. \n")
+
+udiassmv = mean(as.numeric(diassmv))
+ndiassmv = length(as.numeric(diassmv))
+DEdiassmv = sd(diassmv)
+ESdiassmv = DEdiassmv / sqrt(ndiassmv)
+
+lidiassmv = udiassmv - (z * ESdiassmv)
+lsdiassmv = udiassmv + (z * ESdiassmv)
+
+cat("El intervarlo de la media es: [", lidiassmv, ",", lsdiassmv,"]. Para las mujeres. \n")
+
+udiasshv = mean(as.numeric(diasshv))
+ndiasshv = length(as.numeric(diasshv))
+DEdiasshv = sd(diasshv)
+ESdiasshv = DEdiasshv / sqrt(ndiasshv)
+
+lidiasshv = udiasshv - (z * ESdiasshv)
+lsdiasshv = udiasshv + (z * ESdiasshv)
+
+cat("El intervarlo de la media es: [", lidiasshv, ",", lsdiasshv,"]. Para los hombres. \n\n\n")
+
+cat("Para la parte de la muestra que falleció: \n\n")
+
+udiassf = mean(as.numeric(diassf))
+ndiassf = length(as.numeric(diassf))
+DEdiassf = sd(diassf)
+ESdiassf = DEdiassf / sqrt(ndiassf)
+lidiassf = udiassf - (z * ESdiassf)
+lsdiassf = udiassf + (z * ESdiassf)
+
+cat("El intervarlo de la media es: [", lidiassf, ",", lsdiassf,"]. Para toda la muestra. \n")
+
+udiassmf = mean(as.numeric(diassmf))
+ndiassmf = length(as.numeric(diassmf))
+DEdiassmf = sd(diassmf)
+ESdiassmf = DEdiassmf / sqrt(ndiassmf)
+
+lidiassmf = udiassmf - (z * ESdiassmf)
+lsdiassmf = udiassmf + (z * ESdiassmf)
+
+cat("El intervarlo de la media es: [", lidiassmf, ",", lsdiassmf,"]. Para las mujeres. \n")
+
+udiasshf = mean(as.numeric(diasshf))
+ndiasshf = length(as.numeric(diasshf))
+DEdiasshf = sd(diasshf)
+ESdiasshf = DEdiasshf / sqrt(ndiasshf)
+
+lidiasshf = udiasshf - (z * ESdiasshf)
+lsdiasshf = udiasshf + (z * ESdiasshf)
+
+cat("El intervarlo de la media es: [", lidiasshf, ",", lsdiasshf,"]. Para los hombres. \n")
+
+plot(NA, xlim = c(2,6), ylim = c(0,6), ylab = "", xlab = "Intervalos de confianza para los días de síntomas antes de ser hospitalizados.")
+
+arrows(lidiassv , 1.5, lsdiassv , 1.5, code = 3, angle = 90, lwd = 2, col = "blue") #arrows(x1, y1, x2, y2, )
+arrows(lidiassf , 4.5, lsdiassf , 4.5, code = 3, angle = 90, lwd = 2, col = "blue")
+
+points(udiassv, 1.5, pch = 19, col = "red", cex = 1)
+points(udiassf, 4.5, pch = 19, col = "red", cex = 1)
+
+text(2.4, 1.5, "Sobrevivientes")
+text(lidiasshv-0.2, 0.5, round(lidiassv, 2))
+text(lsdiasshv+0.2, 0.5, round(lsdiassv, 2))
+
+text(2.4, 4.5, "Fallecidos")
+text(lidiasshf-0.2, 3.5, round(lidiassf, 2))
+text(lsdiasshf, 3.5, round(lsdiassf, 2))
+
+```
+
+## Diferencia de medias de EDAD entre Nuevo León y Jalisco
+
+Aquí se calcula el promedio de las variables acorde al estado o al sexo. Con el comando tapply podemos generar el promedio a partir de ciertas columnas de la base de datos. Se obtuvo el promedio de edad acorde al sexo, el de hombres y mujeres por entidad, así como el promedio de edad en cada estado. También obtuvimos el promedio de días que pasaron en el hospital las personas fallecidas en el estado de Nuevo León y de Jalisco, al igual que con las otras variables. También se realizaron pruebas para conocer la distribución de las medias.
+
+```{r}
+print("Promedio de edad por SEXO:")
+tapply(M$EDAD, M$SEXO, mean)
+cat("\n")
+prom_estados_mujeres=tapply(M$SEXO != "1",M$ENTIDAD_NAC,mean)
+prom_estados_mujeresnl=tapply(M$SEXO != "1",M$ENTIDAD_NAC != "19",mean)
+prom_estados_mujeresjsco=tapply(M$SEXO != "1",M$ENTIDAD_NAC !="14",mean)
+
+desv_estados_mujeres=tapply(M$SEXO != "1",M$ENTIDAD_NAC,sd)
+frec_estados_mujeres=tapply(M$SEXO != "1",M$ENTIDAD_NAC,table)
+
+frec_hom = table(M$SEXO)[2]
+n = length(M$SEXO)
+prom_estados_hombres=tapply(as.numeric(M$SEXO != "2"),M$ENTIDAD_NAC,mean)
+prom_estados_hombresnl=tapply(M$SEXO != "2",M$ENTIDAD_NAC!="19",mean)
+prom_estados_hombresjsco=tapply(M$SEXO != "2",M$ENTIDAD_NAC!="14",mean)
+
+desv_estados_hombres=tapply(M$SEXO != "2",M$ENTIDAD_NAC,sd)
+frec_estados_hombres=tapply(M$SEXO != "2",M$ENTIDAD_NAC,table)
+
+prom_estados_edad=tapply(M$EDAD,M$ENTIDAD_NAC,mean)
+
+cat("Promedio de hombres por entidad federativa: \n")
+prom_estados_hombres
+cat("\n")
+
+cat("Promedio de hombres en Nuevo Leon: \n")
+prom_estados_hombresnl
+cat("\n")
+
+cat("Promedio de hombres en Jalisco: \n")
+prom_estados_hombresjsco
+cat("\n")
+
+cat("Desviacion de hombres por entidad federativa: \n")
+desv_estados_hombres
+cat("\n")
+
+cat("Promedio de mujeres por entidad federativa: \n")
+prom_estados_mujeres
+cat("\n")
+
+cat("Promedio de mujeres en Nuevo Leon: \n")
+prom_estados_mujeresnl
+cat("\n")
+
+cat("Promedio de mujeres en Jalisco: \n")
+prom_estados_mujeresjsco
+cat("\n")
+
+cat("Desviacion de mujeres por entidad federativa: \n")
+desv_estados_mujeres
+cat("\n")
+
+cat("Promedio de edad por entidad federativa: \n")
+prom_estados_edad
+cat("\n")
+
+cat("Tablas de frecuencias de la variable sexo por Estado: \n") ## TRUE SIGNIFICA MUJERES, FALSE HOMBRES.
+frec_estados_hombres
+cat("\n")
+
+```
+
+Para probar que los datos no son normales, utilizaremos el Anderson-Darling normality test.
+
+Ho: Los datos provienen de una población normal
+H1: No provienen de una población normal
+Regla: si valor-p es < 0.05 se rechaza Ho.
+
+## Intervalo de confianza para la media de la EDAD
+
+```{r 3}
+hist(M$EDAD, col="blue")
+library(nortest)
+ad.test(M$EDAD)
+```
+
+Pero como la muestra es grande, se usa Z. 
+
+## Intervalo de confianza para la EDAD, sigma desconocida 
+
+```{r 4}
+library(BSDA)
+Sigma = sd(M$EDAD) # como aprox por n grande
+
+z.test(M$EDAD, conf.level = 0.95, sigma.x = Sigma)
+```
+
+## Intervalo de confianza para proporciones
+
+Proporción de hombres y mujeres con Covid + confirmado: 
+
+```{r 5}
+frec_hom = table(M$SEXO)[2]
+n = length(M$SEXO)
+prop.test(frec_hom, n, conf.level = 0.95, correct = FALSE)
+```
+
+## INTERVALOS DE CONFIANZA DE DIFERENCIA DE MEDIAS con sigmas desconocidas pero iguales, grandes muestras
+
+Se obtienen los datos de las edades de las mujeres de NL y de Jalisco, con Covid: 
+
+```{r 6}
+EdadmMty = M[M$SEXO == 1 & M$ENTIDAD_NAC == 19, ] # Mujeres de NL
+EdadmJsco = M[M$SEXO == 1 & M$ENTIDAD_NAC == 14, ] # Mujeres de Jalisco
+A = t.test(EdadmMty$EDAD, EdadmJsco$EDAD, conf.level = 0.95, var.equal = TRUE)
+A$conf.int
+```
+
+
+```{r 7}
+##Personas que fallecieron en Nuevo León
+Mf = subset(M, M$FECHA_DEF != "9999-99-99" & M$ENTIDAD_NAC == "19")
+dias = as.Date(Mf$FECHA_DEF)-as.Date(Mf$FECHA_INGRESO)
+
+cat("Promedio de dias en Nuevo Leon \n")
+prom_estados_dias=tapply(dias,Mf$ENTIDAD_NAC ,mean)
+prom_estados_dias
+
+##Personas que fallecieron en Jalisco
+Mf2 = subset(M,M$FECHA_DEF != "9999-99-99" & M$ENTIDAD_NAC == "14")
+dias2 = as.Date(Mf2$FECHA_DEF)-as.Date(Mf2$FECHA_INGRESO)
+
+cat("Promedio de dias en Jalisco \n")
+prom_estados_dias2=tapply(dias2, Mf2$ENTIDAD_NAC ,mean)
+prom_estados_dias2
+```
+
+## Promedio de días hospitalizado para hombres que fallecieron por covid en Nuevo León.
+
+```{r 8}
+Mr = subset(M, M$FECHA_DEF != "9999-99-99" & M$ENTIDAD_NAC == "19" & M$SEXO =="2")
+diasr= as.Date(Mr$FECHA_DEF) - as.Date(Mr$FECHA_INGRESO)
+
+cat("Promedio de días hospitalizados para hombres en Nuevo León")
+prom_final=tapply(diasr,Mr$ENTIDAD_NAC,mean)
+prom_final
+```
+
+## Promedio de días hospitalizado para hombres que fallecieron por covid en Jalisco.
+
+```{r 9}
+Mr = subset(M, M$FECHA_DEF != "9999-99-99" & M$ENTIDAD_NAC == "14" & M$SEXO =="2")
+diasr= as.Date(Mr$FECHA_DEF) - as.Date(Mr$FECHA_INGRESO)
+
+cat("Promedio de días hospitalizados para hombres en Jalisco")
+prom_final=tapply(diasr,Mr$ENTIDAD_NAC,mean)
+prom_final
+```
+
+## Promedio de días hospitalizado para mujeres que fallecieron por covid en Nuevo León.
+
+```{r 10}
+Mr = subset(M, M$FECHA_DEF != "9999-99-99" & M$ENTIDAD_NAC == "19" & M$SEXO =="1")
+diasr= as.Date(Mr$FECHA_DEF) - as.Date(Mr$FECHA_INGRESO)
+
+cat("Promedio de días hospitalizados para mujeres en Nuevo León")
+prom_final=tapply(diasr,Mr$ENTIDAD_NAC,mean)
+prom_final
+```
+
+## Promedio de días hospitalizado para mujeres que fallecieron por covid en Jalisco.
+
+```{r 11}
+Mr = subset(M, M$FECHA_DEF != "9999-99-99" & M$ENTIDAD_NAC == "14" & M$SEXO =="1")
+diasr= as.Date(Mr$FECHA_DEF) - as.Date(Mr$FECHA_INGRESO)
+
+cat("Promedio de días hospitalizados para mujeres en Jalisco")
+prom_final=tapply(diasr,Mr$ENTIDAD_NAC,mean)
+prom_final
+```
+
+## Prueba de independencia entre mortalidad y edad
+
+```{r 12}
+Mri = subset(M,M$FECHA_DEF !="9999-99-99" & M$EDAD)
+Edad=Mri$EDAD
+Dias= abs(as.Date(Mri$FECHA_DEF) - as.Date(Mri$FECHA_INGRESO))
+Tabla=cbind(Edad,Dias)
+
+chisq.test(Tabla)
+
+```
+
+Ho: Hay evidencia estadistica para decir que la variable de mortalidad y edad no dependen la una de la otra (Son independientes)
+
+H1: Hay evidencia estadistica para decir que la variable de mortalidad y edad si dependen la una de la otra (Son dependientes)
+
+Como el valor p es menor que alfa, se rechaza la Ho.
+
+
+##Esto al final##borrar al editar
+
+```{r 13}
+M2021 = M[as.Date(M$FECHA_INGRESO)>as.Date("2021-01-01") & as.Date(M$FECHA_INGRESO)<as.Date("2021-12-31"),]
+plot(table(M2021$FECHA_INGRESO))
+```
+
+```{r 14}
+M2022 = M[as.Date(M$FECHA_INGRESO)>as.Date("2022-01-01") & as.Date(M$FECHA_INGRESO)<as.Date("2022-12-31"),]
+plot(table(M2022$FECHA_INGRESO))
+```
+
+## Conclusión
+
+Llegó a haber más casos positivos de covid este año que el anterior a nivel nacional. También se notó que en promedio hubo más casos de muertes para hombres en Nuevo León, pero para mujeres la tasa fue mayor en Jalisco. Por último, al realizar las pruebas de normalidad se concluyó que la distribución tiene forma normal.
